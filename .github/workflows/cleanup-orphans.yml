@@ -16,10 +16,12 @@ jobs:
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
           LAKEBASE_PROJECT: ${{ secrets.LAKEBASE_PROJECT }}
         run: |
-          databricks postgres list-branches "${{ secrets.LAKEBASE_PROJECT }}" --output json \
-            | jq -r '.branches[].branch_id' \
-            | grep -E "^pr-" \
+          # CLI has no list-branches — use the Postgres REST API
+          PAGE=$(curl -sS -H "Authorization: Bearer $DATABRICKS_TOKEN" \
+            "$DATABRICKS_HOST/api/2.0/postgres/projects/${{ secrets.LAKEBASE_PROJECT }}/branches")
+          echo "$PAGE" | jq -r '.branches[].name' \
+            | grep -E "/branches/pr-" \
             | while read -r B; do
                 echo "Deleting orphan: $B"
-                databricks postgres delete-branch "projects/${{ secrets.LAKEBASE_PROJECT }}/branches/$B" || true
+                databricks postgres delete-branch "$B" || true
               done

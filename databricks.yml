@@ -28,6 +28,6 @@ resources:
       parent: ${resources.postgres_branches.prod_branch.id}
       endpoint_id: primary
       endpoint_type: ENDPOINT_TYPE_READ_WRITE
-      autoscaling_limit_min_cu: 0.5
+      autoscaling_limit_min_cu: 1   # match the existing Free Edition project default
       autoscaling_limit_max_cu: 1   # Free Edition cap; raise on paid tiers
       replace_existing: true        # REQUIRED: adopt the implicit primary endpoint
