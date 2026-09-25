@@ -41,7 +41,7 @@ jobs:
           if databricks postgres get-branch "projects/${{ secrets.LAKEBASE_PROJECT }}/branches/$PR_BRANCH" --output json >/dev/null 2>&1; then
             echo "Branch $PR_BRANCH already exists — reusing"
           else
-            databricks postgres create-branch "${{ secrets.LAKEBASE_PROJECT }}" "$PR_BRANCH" \
+            databricks postgres create-branch "projects/${{ secrets.LAKEBASE_PROJECT }}" "$PR_BRANCH" \
               --json '{"spec":{"source_branch":"projects/${{ secrets.LAKEBASE_PROJECT }}/branches/production","ttl":"86400s"}}'
           fi
 
