@@ -1,0 +1,33 @@
+bundle:
+  name: lakebase-cicd-poc
+
+targets:
+  dev:
+    mode: development
+    default: true
+  prod:
+    mode: production
+
+resources:
+  postgres_projects:
+    core_db_project:
+      project_id: core-app-db
+      display_name: Core Application Database
+      pg_version: 17
+
+  postgres_branches:
+    prod_branch:
+      parent: ${resources.postgres_projects.core_db_project.id}
+      branch_id: production
+      no_expiry: true
+      # is_protected: true   # enable on a real prod tier; keep off for POC teardown
+      replace_existing: true # REQUIRED: adopt the implicitly created branch
+
+  postgres_endpoints:
+    prod_endpoint:
+      parent: ${resources.postgres_branches.prod_branch.id}
+      endpoint_id: primary
+      endpoint_type: ENDPOINT_TYPE_READ_WRITE
+      autoscaling_limit_min_cu: 0.5
+      autoscaling_limit_max_cu: 1   # Free Edition cap; raise on paid tiers
+      replace_existing: true        # REQUIRED: adopt the implicit primary endpoint

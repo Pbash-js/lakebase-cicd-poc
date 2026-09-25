@@ -1,0 +1,4 @@
+.databrickscfg
+__pycache__/
+*.pyc
+.env

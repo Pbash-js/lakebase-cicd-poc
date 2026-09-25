@@ -1,0 +1,74 @@
+name: PR Validation — Lakebase branch
+on:
+  pull_request:
+    paths: ["db/migrations/**", "db/objects/**", "db/tests/**", "scripts/**"]
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Databricks CLI + Python deps
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sudo sh
+          pip3 install "psycopg[binary]" pytest
+
+      - name: Provision Ephemeral PR Branch (idempotent — reuse on PR update)
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          PR_ID: ${{ github.event.pull_request.number }}
+        run: |
+          PR_BRANCH="pr-${PR_ID}"
+          if databricks postgres get-branch "projects/${{ secrets.LAKEBASE_PROJECT }}/branches/$PR_BRANCH" --output json >/dev/null 2>&1; then
+            echo "Branch $PR_BRANCH already exists — reusing"
+          else
+            databricks postgres create-branch "${{ secrets.LAKEBASE_PROJECT }}" "$PR_BRANCH" \
+              --json '{"spec":{"source_branch":"projects/${{ secrets.LAKEBASE_PROJECT }}/branches/production","ttl":"86400s"}}'
+          fi
+
+      - name: Wait for Endpoint Readiness
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          PR_ID: ${{ github.event.pull_request.number }}
+        run: |
+          PR_BRANCH="pr-${PR_ID}"
+          for i in $(seq 1 30); do
+            STATE=$(databricks postgres get-endpoint \
+              "projects/${{ secrets.LAKEBASE_PROJECT }}/branches/$PR_BRANCH/endpoints/primary" \
+              --output json | jq -r '.status.current_state // empty')
+            [ "$STATE" = "ACTIVE" ] && exit 0
+            sleep 2
+          done
+          echo "Endpoint did not become ready" && exit 1
+
+      - name: Run Migrations (Cookbook runner — exactly-once + drift check)
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          LAKEBASE_PROJECT: ${{ secrets.LAKEBASE_PROJECT }}
+          DATABRICKS_PG_USER: ${{ secrets.DATABRICKS_PG_USER }}
+          TARGET_BRANCH: pr-${{ github.event.pull_request.number }}
+        run: ./scripts/deploy_db.sh
+
+      - name: Execute Tests (against the PR branch)
+        env:
+          PR_ID: ${{ github.event.pull_request.number }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          LAKEBASE_PROJECT: ${{ secrets.LAKEBASE_PROJECT }}
+          DATABRICKS_PG_USER: ${{ secrets.DATABRICKS_PG_USER }}
+        run: |
+          HOST=$(databricks postgres get-endpoint \
+            "projects/${{ secrets.LAKEBASE_PROJECT }}/branches/pr-${PR_ID}/endpoints/primary" \
+            --output json | jq -r .status.hosts.host)
+          TOKEN=$(databricks postgres generate-database-credential \
+            "projects/${{ secrets.LAKEBASE_PROJECT }}/branches/pr-${PR_ID}/endpoints/primary" \
+            --output json | jq -r .token)
+          export PGHOST="$HOST" PGUSER="$DATABRICKS_PG_USER" PGPASSWORD="$TOKEN"
+          pytest db/tests -q

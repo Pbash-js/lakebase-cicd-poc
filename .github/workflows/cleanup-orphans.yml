@@ -1,0 +1,25 @@
+name: Weekly Lakebase Branch GC
+on:
+  schedule: [{ cron: "0 3 * * 6" }]   # Saturdays 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Databricks CLI
+        run: curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sudo sh
+
+      - name: Delete orphaned PR branches
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          LAKEBASE_PROJECT: ${{ secrets.LAKEBASE_PROJECT }}
+        run: |
+          databricks postgres list-branches "${{ secrets.LAKEBASE_PROJECT }}" --output json \
+            | jq -r '.branches[].branch_id' \
+            | grep -E "^pr-" \
+            | while read -r B; do
+                echo "Deleting orphan: $B"
+                databricks postgres delete-branch "projects/${{ secrets.LAKEBASE_PROJECT }}/branches/$B" || true
+              done

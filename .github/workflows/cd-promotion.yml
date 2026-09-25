@@ -1,0 +1,34 @@
+name: CD Promotion — replay to production
+on:
+  push:
+    branches: [main]
+    paths: ["db/migrations/**", "db/objects/**", "databricks.yml"]
+concurrency:
+  group: cd-production
+  cancel-in-progress: false   # serialize production migrations — never race
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: production   # put required reviewers here
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Databricks CLI + Python deps
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sudo sh
+          pip3 install "psycopg[binary]"
+
+      - name: Deploy Infrastructure Assets via DABs
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        run: databricks bundle deploy -t prod
+
+      - name: Apply Migrations + Objects to Production (exactly-once, drift-checked)
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          LAKEBASE_PROJECT: ${{ secrets.LAKEBASE_PROJECT }}
+          DATABRICKS_PG_USER: ${{ secrets.DATABRICKS_PG_USER }}
+        run: ./scripts/deploy_db.sh   # TARGET_BRANCH defaults to production
