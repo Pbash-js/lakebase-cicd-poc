@@ -13,9 +13,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Databricks CLI + Python deps
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sudo sh
-          pip3 install "psycopg[binary]" pytest
+        uses: databricks/setup-cli@main
+        with:
+          cli-version: 1.17.0
+
+      - name: Install Python deps
+        run: pip3 install "psycopg[binary]" pytest
 
       - name: Provision Ephemeral PR Branch (idempotent — reuse on PR update)
         env:
