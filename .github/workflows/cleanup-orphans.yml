@@ -10,7 +10,7 @@ jobs:
       - name: Install Databricks CLI (pinned — postgres API surface changes across versions)
         uses: databricks/setup-cli@main
         with:
-          cli-version: 1.17.0
+          version: 1.17.0
 
       - name: Delete orphaned PR branches
         env:

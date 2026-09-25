@@ -15,7 +15,7 @@ jobs:
       - name: Install Databricks CLI + Python deps
         uses: databricks/setup-cli@main
         with:
-          cli-version: 1.17.0
+          version: 1.17.0
 
       - name: Install Python deps
         run: pip3 install "psycopg[binary]" pytest
