@@ -20,17 +20,6 @@ jobs:
       - name: Install Python deps
         run: pip3 install "psycopg[binary]" pytest
 
-      - name: DEBUG — raw CLI probe
-        env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-        run: |
-          databricks --version
-          echo "--- get-branch ---"
-          databricks postgres get-branch "projects/${{ secrets.LAKEBASE_PROJECT }}/branches/production" --output json || true
-          echo "--- version of CLI on PATH ---"
-          which databricks
-
       - name: Provision Ephemeral PR Branch (idempotent — reuse on PR update)
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
