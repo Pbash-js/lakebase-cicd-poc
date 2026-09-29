@@ -8,16 +8,14 @@ targets:
   prod:
     mode: production
 
+# The project itself is NOT declared here: DABs cannot adopt an existing
+# postgres_project (no replace_existing on that resource) and a second deploy
+# would fail with "project already exists". The project is created once (CLI or
+# console); the bundle manages branches + endpoints, which DO support adoption.
 resources:
-  postgres_projects:
-    core_db_project:
-      project_id: core-app-db
-      display_name: Core Application Database
-      pg_version: 17
-
   postgres_branches:
     prod_branch:
-      parent: ${resources.postgres_projects.core_db_project.id}
+      parent: projects/core-app-db
       branch_id: production
       no_expiry: true
       # is_protected: true   # enable on a real prod tier; keep off for POC teardown
@@ -25,7 +23,7 @@ resources:
 
   postgres_endpoints:
     prod_endpoint:
-      parent: ${resources.postgres_branches.prod_branch.id}
+      parent: projects/core-app-db/branches/production
       endpoint_id: primary
       endpoint_type: ENDPOINT_TYPE_READ_WRITE
       autoscaling_limit_min_cu: 1   # match the existing Free Edition project default
