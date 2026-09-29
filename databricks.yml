@@ -29,3 +29,5 @@ resources:
       autoscaling_limit_min_cu: 1   # match the existing Free Edition project default
       autoscaling_limit_max_cu: 1   # Free Edition cap; raise on paid tiers
       replace_existing: true        # REQUIRED: adopt the implicit primary endpoint
+
+# cd trigger: also fires on workflow changes
