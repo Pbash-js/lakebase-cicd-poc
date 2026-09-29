@@ -14,10 +14,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Databricks CLI + Python deps
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sudo sh
-          pip3 install "psycopg[binary]"
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+        with:
+          version: 1.17.0
+
+      - name: Install Python deps
+        run: pip3 install "psycopg[binary]"
 
       - name: Deploy Infrastructure Assets via DABs
         env:
