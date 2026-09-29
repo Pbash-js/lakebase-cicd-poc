@@ -20,7 +20,7 @@ jobs:
           version: 1.17.0
 
       - name: Install Python deps
-        run: pip3 install "psycopg[binary]"
+        run: pip3 install "psycopg[binary]" pytest
 
       - name: Deploy Infrastructure Assets via DABs
         env:
