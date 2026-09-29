@@ -7,6 +7,9 @@ set -euo pipefail
 PROJECT="${LAKEBASE_PROJECT:-core-app-db}"
 ENDPOINT="projects/${PROJECT}/branches/${TARGET_BRANCH:-production}/endpoints/primary"
 
+echo "PROJECT: $PROJECT"
+echo "ENDPOINT: $ENDPOINT"
+
 HOST="$(databricks postgres get-endpoint "$ENDPOINT" --output json | python -c "import sys,json;print(json.load(sys.stdin)['status']['hosts']['host'])")"
 TOKEN="$(databricks postgres generate-database-credential "$ENDPOINT" --output json | python -c "import sys,json;print(json.load(sys.stdin)['token'])")"
 
