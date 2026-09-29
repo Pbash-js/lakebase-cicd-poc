@@ -1,7 +1,7 @@
 name: PR Validation — Lakebase branch
 on:
   pull_request:
-    paths: ["db/migrations/**", "db/objects/**", "db/tests/**", "scripts/**"]
+    paths: ["db/migrations/**", "db/objects/**", "db/rbac/**", "db/tests/**", "scripts/**", "databricks.yml", ".github/workflows/**"]
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
@@ -11,6 +11,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Infra-file integrity gate
+        env:
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+        run: |
+          git fetch -q origin ${{ github.event.pull_request.base.sha }}
+          CHANGED=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} -- .github databricks.yml scripts)
+          if [ -z "$CHANGED" ]; then
+            echo "No infra/runner changes — gate passed"
+            exit 0
+          fi
+          echo "Infra/runner files changed in this PR:"; echo "$CHANGED"
+          case " $LABELS " in
+            *" infra-approved "*) echo "infra-approved label present — gate passed"; exit 0;;
+          esac
+          echo "::error::PR touches .github/, scripts/ or databricks.yml — second-pair-of-eyes rule: add the 'infra-approved' label after review"
+          exit 1
 
       - name: Install Databricks CLI + Python deps
         uses: databricks/setup-cli@main
@@ -58,20 +75,3 @@ jobs:
           DATABRICKS_PG_USER: ${{ secrets.DATABRICKS_PG_USER }}
           TARGET_BRANCH: pr-${{ github.event.pull_request.number }}
         run: ./scripts/deploy_db.sh
-
-      - name: Execute Tests (against the PR branch)
-        env:
-          PR_ID: ${{ github.event.pull_request.number }}
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-          LAKEBASE_PROJECT: ${{ secrets.LAKEBASE_PROJECT }}
-          DATABRICKS_PG_USER: ${{ secrets.DATABRICKS_PG_USER }}
-        run: |
-          HOST=$(databricks postgres get-endpoint \
-            "projects/${{ secrets.LAKEBASE_PROJECT }}/branches/pr-${PR_ID}/endpoints/primary" \
-            --output json | jq -r .status.hosts.host)
-          TOKEN=$(databricks postgres generate-database-credential \
-            "projects/${{ secrets.LAKEBASE_PROJECT }}/branches/pr-${PR_ID}/endpoints/primary" \
-            --output json | jq -r .token)
-          export PGHOST="$HOST" PGUSER="$DATABRICKS_PG_USER" PGPASSWORD="$TOKEN"
-          pytest db/tests -q

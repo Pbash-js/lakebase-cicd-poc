@@ -1,0 +1,6 @@
+# Second-pair-of-eyes rule: these paths need a designated reviewer.
+# Branch protection must also require: PRs, the 'validate' check, no force-push.
+*                       @Pbash-js
+.github/                @Pbash-js
+scripts/                @Pbash-js
+databricks.yml          @Pbash-js
