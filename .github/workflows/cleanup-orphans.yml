@@ -7,8 +7,10 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Install Databricks CLI
-        run: curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sudo sh
+      - name: Install Databricks CLI (pinned — postgres API surface changes across versions)
+        uses: databricks/setup-cli@main
+        with:
+          version: 1.17.0
 
       - name: Delete orphaned PR branches
         env:
